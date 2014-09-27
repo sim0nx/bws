@@ -30,3 +30,5 @@ regen_makefile:
 	rm -f ../$(UTILNAME)/Makefile
 	$(REGEN)
 
+updateprogram:
+	ruamel_util_updateprogram browserworkspace.py

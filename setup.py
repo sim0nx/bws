@@ -109,7 +109,8 @@ class MyInstallLib(install_lib.install_lib):
 
 def main():
     install_requires = [
-        'std.argparse',
+        'configobj',
+        # 'std.argparse', # ruamel_util_updateprogram
     ]
     # if sys.version_info < (3, 4):
     #     install_requires.append("")
