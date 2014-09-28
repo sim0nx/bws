@@ -915,7 +915,6 @@ class bws_cmd(ProgramBase):
         config_file_name = self._config.get_file_name()
         if not os.path.exists(config_file_name):
             # write new file with defaults
-            from ruamel.ext.configobj import ConfigObj
             to_stdout('Initialising', config_file_name)
             cfg = self._config._config
             cfg['global'] = dict(keep=_default_keep)

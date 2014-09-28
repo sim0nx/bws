@@ -11,6 +11,12 @@ sdist:
 wheel:
 	python setup.py bdist_wheel
 
+pypi-register:
+	python setup.py register
+
+pypi-upload:
+	python setup.py sdist upload
+
 clean:
 	rm -rf build .tox $(PKGNAME).egg-info/
 	find . -name "*.pyc" -exec rm {} +
