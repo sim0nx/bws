@@ -723,9 +723,6 @@ class BrowserWorkspace:
     def __init__(self, args, config):
         self._args = args
         self._config = config
-        # firefox=True, chrome=True, safe='json'):
-        # self._firefox = firefox
-        # self._chrome = chrome
         self._browsers = {}
         self._nr_windows = 0
         self._format_version = 1
@@ -738,8 +735,23 @@ class BrowserWorkspace:
         NR_PARTS = 8
         res = subprocess.check_output('wmctrl -l -G -p'.split())
         start = []
-        start.extend(['firefox-trunk', 'firefox'])
-        start.append('chromium-browser')
+        for key in self._config._config:
+            if not key.startswith('br-'):
+                continue
+            val = self._config[key].get('basenamestart')
+            if val is None:
+                print("your config file ({}) doesn't have basenamestart\n"
+                      "    defintions for key: {}".format(
+                          self._config.get_file_name(), key))
+                continue
+            if not isinstance(val, list):
+                val = [val]
+            start.extend(val)
+        if not start:
+            print("your config file ({}) doesn't have any\n   "
+                  "br-*/basenamestart defintions".format(
+                      self._config.get_file_name()))
+            sys.exit()
         self._browsers = {}
         self._nr_windows = 0
         for line in res.splitlines():
@@ -770,6 +782,11 @@ class BrowserWorkspace:
     def save(self):
         if not self._browsers:
             self.ewmh()
+        if self._nr_windows < self._args.minwin and not self._args.force:
+            if self._args.verbose > 0:
+                print('not saving number of windows: {} < {}'.format(
+                    self._nr_windows, self._args.minwin))
+            return 1
         _p = self._path_pattern.format('{:%Y%m%d-%H%M%S}')
         file_name = _p.format(datetime.datetime.now())
         # print(json.dumps(self._browsers, indent=2))
@@ -858,8 +875,12 @@ def to_stdout(*args):
     sys.stdout.write(' '.join(args) + '\n')
 
 
+_default_minwin = 3
+_default_keep = 10
+
 class bws_cmd(ProgramBase):
     """handle commmandline options for BrowserWorkspace"""
+
     def __init__(self):
         super(bws_cmd, self).__init__(
             formatter_class=SmartFormatter
@@ -872,7 +893,7 @@ class bws_cmd(ProgramBase):
             const=1, nargs=0, default=0, global_option=True)
     @option('--keep',
             help='max number of old saves to keep (default: %(default)s)',
-            type=int, default=100, global_option=True)
+            type=int, default=_default_keep, global_option=True)
     @version('version: ' + __version__)
     def _pb_init(self):
         # special name for which attribs are included in help
@@ -893,10 +914,12 @@ class bws_cmd(ProgramBase):
         # to get other information from the configuration directory
         config_file_name = self._config.get_file_name()
         if not os.path.exists(config_file_name):
+            # write new file with defaults
             from ruamel.ext.configobj import ConfigObj
             to_stdout('Initialising', config_file_name)
-            cfg = ConfigObj(config_file_name)
-            cfg['global'] = dict(keep=10)
+            cfg = self._config._config
+            cfg['global'] = dict(keep=_default_keep)
+            cfg['save'] = dict(minwin=_default_minwin)
             cfg['br-firefox'] = dict(basenamestart=
                                      ['firefox-trunk', 'firefox'])
             cfg['br-chrome'] = dict(basenamestart=['chromium-browser'])
@@ -906,28 +929,33 @@ class bws_cmd(ProgramBase):
 
     @sub_parser(help='''save the current setup, purging old versions
                      (based on --keep)''')
+    @option('--minwin', '-m', default=_default_minwin,
+            type=int, metavar='N',
+            help="minimum number of windows that needs to be open to create a "
+            "new save file (default: %(default)s)")
+    @option('--force', action='store_true', help="override (configured) minwin"
+            " setting")
     def save(self):
-        print('saving')
         bws = BrowserWorkspace(self._args, self._config)
-        bws.save()
+        return bws.save()
 
     @sub_parser(help='''list availabel workspace setups''')
     def list(self):
-        print('saving')
         bws = BrowserWorkspace(self._args, self._config)
-        bws.read(show=True)
+        return bws.read(show=True)
 
     @sub_parser(help='restore workspace setup (defaults to most recent)')
     @option('position', nargs='?', type=int, default=0)
     def restore(self):
         bws = BrowserWorkspace(self._args, self._config)
-        bws.restore(self._args.position)
+        return bws.restore(self._args.position)
 
 
 def main():
     n = bws_cmd()
     n.parse_args()
-    n.run()
+    res = n.run()
+    sys.exit(res) # if res is None -> 0 as exit
 
 if __name__ == '__main__':
     main()

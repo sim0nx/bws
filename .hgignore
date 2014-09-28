@@ -3,6 +3,7 @@ syntax: glob
 *.pyc
 *~
 *.bak
+README.pdf
 *.o
 *.orig
 dist
