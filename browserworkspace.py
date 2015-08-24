@@ -715,7 +715,7 @@ version_info = (0, 1, 2)
 __version__ = _convert_version(version_info)
 # <
 
-class BrowserWorkspace:
+class BrowserWorkspace(object):
     """"""
     # names of the fields returned by wmctrl -l -G -p
     _names = 'wid workspace pid x y w h hostname title'.split()
