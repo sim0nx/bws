@@ -1,5 +1,10 @@
 # coding: utf-8
 
+_package_data = dict(
+    version_info=(0, 1, 5),
+    author='Anthon van der Neut',
+    author_email='a.van.der.neut@ruamel.eu',
+)
 
 def _convert_version(tup):
     """create a PEP 386 pseudo-format conformant string from tuple tup"""
@@ -19,7 +24,7 @@ def _convert_version(tup):
     return ret_val
 
 
-version_info = (0, 1, 4)
+version_info = (0, 1, 5)
 __version__ = _convert_version(version_info)
 
 

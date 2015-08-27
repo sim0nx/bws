@@ -1,23 +1,31 @@
-#! /usr/bin/env python
+## header
 # coding: utf-8
 
 from __future__ import print_function
 
-import sys
-import os
-from textwrap import dedent
+if __name__ != '__main__':
+    raise NotImplementedError('should never include setup.py')
 
-name_space = 'ruamel'
-package_name = 'bws'
-full_package_name = name_space + '.' + package_name
+## definitions
+
+full_package_name = 'ruamel.bws'
 
 exclude_files = [
     'setup.py',
 ]
 
+## imports
+import os
+import sys
+
+from setuptools import setup, find_packages
+from setuptools.command import install_lib
+
+## helper
 
 def get_version():
     v_i = 'version_info = '
+    #    for line in open(os.path.join(rel_dir, '__init__.py')):
     for line in open('__init__.py'):
         if not line.startswith(v_i):
             continue
@@ -60,16 +68,7 @@ def _check_convert_version(tup):
 version_info = get_version()
 version_str = _check_convert_version(version_info)
 
-if __name__ == '__main__':
-    # put here so setup.py can be imported more easily
-    from setuptools import setup, find_packages, Extension
-    from setuptools.command import install_lib
-
-
 class MyInstallLib(install_lib.install_lib):
-    def run(self):
-        install_lib.install_lib.run(self)
-
     def install(self):
         fpp = full_package_name.split('.')  # full package path
         full_exclude_files = [os.path.join(*(fpp + [x]))
@@ -86,50 +85,161 @@ class MyInstallLib(install_lib.install_lib):
         return alt_files
 
 
+class NameSpacePackager(object):
+    def __init__(self, full_package_name):
+        self.fns = full_package_name
+        self._split = None
+        self.depth = self.fns.count('.')
+        self.command = None
+        if sys.argv[0] == 'setup.py' and sys.argv[1] == 'install' and \
+           not '--single-version-externally-managed' in sys.argv:
+            print('error: have to isntall with "pip install ."')
+            sys.exit(1)
+        for x in sys.argv:
+            if x[0] == '-' or x == 'setup.py':
+                continue
+            self.command = x
+            break
+
+    @property
+    def split(self):
+        """split the full package name in list of compontents"""
+        if self._split is None:
+            fpn = self.fns.split('.')
+            self._split = []
+            while fpn:
+                self._split.insert(0, '.'.join(fpn))
+                fpn = fpn[:-1]
+            for d in os.listdir('.'):
+                if not os.path.isdir(d) or d == self._split[0] or d[0] == '_':
+                    continue
+                x = os.path.join(d, '__init__.py')
+                if os.path.exists(x):
+                    self._split.append(full_package_name + '.' + d)
+        return self._split
+
+    @property
+    def namespace_packages(self):
+        return self.split[:self.depth]
+
+    @property
+    def package_dir(self):
+        return {
+            self.fns: '',
+            self.split[0]: self.split[0],
+        }
+
+    def create_dirs(self):
+        """create the directories necessary for namespace packaging"""
+        if not os.path.exists(self.split[0]):
+            for d in self.split[:self.depth]:
+                d = os.path.join(*d.split('.'))
+                os.mkdir(d)
+                with open(os.path.join(d, '__init__.py'), 'w') as fp:
+                    fp.write('import pkg_resources\n'
+                             'pkg_resources.declare_namespace(__name__)\n')
+            os.symlink(
+                # a.b gives a/b -> ..
+                # a.b.c gives a/b/c  -> ../..
+                os.path.join(*['..'] * self.depth),
+                os.path.join(*self.split[self.depth].split('.'))
+            )
+
+    def check(self):
+        try:
+            from pip.exceptions import InstallationError
+        except ImportError:
+            return
+        # arg is either develop (pip install -e) or install
+        if self.command not in ['install', 'develop']:
+            return
+
+        # if hgi and hgi.base are both in namespace_packages matching
+        # against the top (hgi.) it suffices to find minus-e and non-minus-e
+        # installed packages. As we don't know the order in namespace_packages
+        # do some magic
+        prefix = self.split[0]
+        prefixes = set([prefix, prefix.replace('_', '-')])
+        for p in sys.path:
+            if not p:
+                continue  # directory with setup.py
+            if os.path.exists(os.path.join(p, 'setup.py')) :
+                continue  # some linked in stuff might not be hgi based
+            if not os.path.isdir(p):
+                continue
+            if p.startswith('/tmp/'):
+                continue
+            for fn in os.listdir(p):
+                for pre in prefixes:
+                    if fn.startswith(pre):
+                        break
+                else:
+                    continue
+                full_name = os.path.join(p, fn)
+                # not in prefixes the toplevel is never changed from _ to -
+                if fn == prefix and os.path.isdir(full_name):
+                    # directory -> other, non-minus-e, install
+                    if self.command == 'develop':
+                        raise InstallationError(
+                            'Cannot mix develop (pip install -e),\nwith '
+                            'non-develop installs for package name {0}'.format(
+                                fn))
+                elif fn == prefix:
+                    raise InstallationError(
+                        'non directory package {0} in {1}'.format(
+                            fn, p))
+                for pre in [x + '.' for x in prefixes]:
+                    if fn.startswith(pre):
+                        break
+                else:
+                    continue # hgiabc instead of hgi.
+                if fn.endswith('-link') and self.command == 'install':
+                    raise InstallationError(
+                        'Cannot mix non-develop with develop\n(pip install -e) '
+                        'installs for package name {0}'.format(fn))
+
+    def entry_points(self, script_name=None, package_name=None):
+        if package_name is None:
+            package_name = self.fns
+        if not script_name:
+            script_name = package_name.split('.')[-1]
+        return {'console_scripts': [
+            '{} = {}:main'.format(script_name, package_name),
+        ]}
+
+    @property
+    def url(self):
+        return 'https://bitbucket.org/{0}/{1}'.format(*self.fns.split('.', 1))
+
+    @property
+    def author(self):
+        return 'Anthon van der Neut'
+
+    @property
+    def author_email(self):
+        return 'a.van.der.neut@ruamel.eu',
+
+
+## call setup
 def main():
-    install_requires = [
-        'ruamel.base',
-        'configobj',
-        # 'std.argparse', # ruamel_util_updateprogram
-    ]
-    # if sys.version_info < (3, 4):
-    #     install_requires.append("")
-    packages = [full_package_name] + [(full_package_name + '.' + x) for x
-                                      in find_packages(exclude=['tests'])]
-    setup(
+    nsp = NameSpacePackager(full_package_name)
+    nsp.check()
+    nsp.create_dirs()
+    kw = dict(
         name=full_package_name,
+        namespace_packages=nsp.namespace_packages,
         version=version_str,
-        description="Documentation for " + full_package_name,
-        install_requires=install_requires,
-        long_description=open('README.rst').read(),
-        url='https://bitbucket.org/ruamel/' + package_name,
-        author='Anthon van der Neut',
-        author_email='a.van.der.neut@ruamel.eu',
-        license="MIT license",
-        package_dir={full_package_name: '.'},
-        namespace_packages=[name_space],
-        packages=packages,
-        entry_points=mk_entry_points(full_package_name),
+        packages=nsp.split,
+        url=nsp.url,
+        author=nsp.author,
+        author_email=nsp.author_email,
         cmdclass={'install_lib': MyInstallLib},
-        classifiers=[
-            'Development Status :: 4 - Beta',
-            'Intended Audience :: Developers',
-            'License :: OSI Approved :: MIT License',
-            'Operating System :: OS Independent',
-            'Programming Language :: Python',
-        ]
+        package_dir=nsp.package_dir,
+        entry_points=nsp.entry_points(),
     )
+    for k in kw:
+        print(k, '->', kw[k])
+    setup(**kw)
 
 
-def mk_entry_points(package_name):
-    script_name = package_name.split('.')[-1]
-    return {'console_scripts': [
-        '{} = {}:main'.format(script_name, package_name),
-    ]}
-
-if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == 'sdist':
-        assert full_package_name == os.path.abspath(os.path.dirname(
-            __file__)).split('site-packages' + os.path.sep)[1].replace(
-            os.path.sep, '.')
-    main()
+main()
