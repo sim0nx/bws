@@ -88,7 +88,7 @@ class MyInstallLib(install_lib.install_lib):
 
 def main():
     install_requires = [
-        'ruamel.base',
+        'ruamel.base==0.3',
         'configobj',
         # 'std.argparse', # ruamel_util_updateprogram
     ]
