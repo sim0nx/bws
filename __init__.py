@@ -5,13 +5,20 @@ from __future__ import absolute_import
 
 _package_data = dict(
     full_package_name="ruamel.bws",
-    version_info=(0, 2, 2),
+    version_info=(0, 2, 3),
     author='Anthon van der Neut',
     description="browser restore to workspace",
     author_email='a.van.der.neut@ruamel.eu',
     install_requires = dict(
         any=["configobj"],
     ),
+    classifiers=[
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Topic :: Internet :: WWW/HTTP :: Browsers"
+    ]
 )
 
 

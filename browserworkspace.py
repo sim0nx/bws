@@ -727,7 +727,7 @@ class BrowserWorkspace(object):
 
     def ewmh(self):
         NR_PARTS = 8
-        res = subprocess.check_output('wmctrl -l -G -p'.split())
+        res = subprocess.check_output('wmctrl -l -G -p'.split()).decode('utf-8')
         start = []
         for key in self._config._config:
             if not key.startswith('br-'):
