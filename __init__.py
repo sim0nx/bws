@@ -1,10 +1,19 @@
 # coding: utf-8
 
+from __future__ import print_function
+from __future__ import absolute_import
+
 _package_data = dict(
-    version_info=(0, 1, 5),
+    full_package_name="ruamel.bws",
+    version_info=(0, 2, 2),
     author='Anthon van der Neut',
+    description="browser restore to workspace",
     author_email='a.van.der.neut@ruamel.eu',
+    install_requires = dict(
+        any=["configobj"],
+    ),
 )
+
 
 def _convert_version(tup):
     """create a PEP 386 pseudo-format conformant string from tuple tup"""
@@ -24,7 +33,7 @@ def _convert_version(tup):
     return ret_val
 
 
-version_info = (0, 1, 5)
+version_info = _package_data['version_info']
 __version__ = _convert_version(version_info)
 
 
@@ -35,5 +44,5 @@ def main():
     # No direct import of bws in order not to pollute namespace.
     # If other utility 'bodies' exist in this directory a module level
     # import here, would get you all of its initialisations/imports as well
-    from browserworkspace import main as util_main
+    from .browserworkspace import main as util_main
     util_main()
