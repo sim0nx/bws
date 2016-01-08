@@ -3,7 +3,8 @@ The Problem
 
 On Linux, after a crash, or a re-login, Firefox and Chrome can restore their
 previous windows' contents and positions. However they do not normally
-restore these windows in the different workspaces/desktops.
+restore these windows in the different workspaces/desktops that you
+may be using.
 
 If the desktop manager implements workspaces by using offsets (wider or
 higher than the desktop resolution) restoration works as offsets "push" the
@@ -32,6 +33,8 @@ the history makes a difference).
 
 Installation
 ============
+
+First, make sure your linux version has ``wmctrl`` installed.
 
 You can use ``pip`` to install the program::
 

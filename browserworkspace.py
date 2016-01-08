@@ -14,6 +14,14 @@ import datetime
 import argparse
 from configobj import ConfigObj
 
+PY3 = sys.version_info[0] == 3
+
+if PY3:
+    string_types = str,
+else:
+    string_types = basestring,
+
+
 # < from ruamel.std.argparse import ProgramBase, option, sub_parser, version, SmartFormatter
 class ProgramBase(object):
     """
@@ -36,7 +44,7 @@ class ProgramBase(object):
         aliases = kw.pop('aliases', 0)
         self._parser = argparse.ArgumentParser(*args, **kw)
         if aliases and sys.version_info < (3,):
-            self._parser.register('action', 'parsers', SubParsersAction)
+            self._parser.register('action', 'parsers', SubParsersAction)  # NOQA
         self._program_base_initialising = True
         cls = self
         self._sub_parsers = None
@@ -49,7 +57,7 @@ class ProgramBase(object):
             ssp = parser.add_subparsers(
                 dest="subparser_level_{0}".format(level),)
             for method_name in method_name_list:
-                #print('method', '  ' * level, method_name)
+                # print('method', '  ' * level, method_name)
                 method = getattr(self, method_name)
                 all_methods_with_sub_parsers.append(method)
                 info = method._sub_parser
@@ -124,7 +132,7 @@ class ProgramBase(object):
                     except TypeError:
                         print('args, kw', arg, kw)
                     if global_option:
-                        #print('global option', arg, len(all_methods_with_sub_parsers))
+                        # print('global option', arg, len(all_methods_with_sub_parsers))
                         for m in all_methods_with_sub_parsers:
                             sp = m._sub_parser['parser']
                             # adding _globa_option to allow easy check e.g. in
@@ -132,11 +140,11 @@ class ProgramBase(object):
                             sp.add_argument(*arg, **kw)._global_option = True
         self._program_base_initialising = False
 
-        #print('-------------------')
-        #dump(ProgramBase._methods_with_sub_parsers)
+        # print('-------------------')
+        # dump(ProgramBase._methods_with_sub_parsers)
         if False:
+            # for x in ProgramBase._methods_with_sub_parsers:
             for x in dir(cls):
-            #for x in ProgramBase._methods_with_sub_parsers:
                 if x.startswith('_'):
                     continue
                 method = getattr(self, x)
@@ -154,7 +162,7 @@ class ProgramBase(object):
                 if level > max_depth:
                     raise NotImplementedError
                 for method in all_methods_with_sub_parsers:
-                    if not method in methods_with_sub_parsers:
+                    if method not in methods_with_sub_parsers:
                         continue
                     parent = method._sub_parser['kw'].get('_parent', None)
                     sub_parsers = self._sub_parsers
@@ -162,7 +170,7 @@ class ProgramBase(object):
                         method._sub_parser['level'] = 0
                         # parent sub parser
                     elif 'level' not in parent._sub_parser:
-                        #print('skipping', parent.__name__, method.__name__)
+                        # print('skipping', parent.__name__, method.__name__)
                         continue
                     else:  # have a parent
                         # make sure _parent is no longer in kw
@@ -223,7 +231,7 @@ class ProgramBase(object):
                         except TypeError:
                             print('args, kw', arg, kw)
                         if global_option:
-                            #print('global option', arg, len(all_methods_with_sub_parsers))
+                            # print('global option', arg, len(all_methods_with_sub_parsers))
                             for m in all_methods_with_sub_parsers:
                                 sp = m._sub_parser['parser']
                                 sp.add_argument(*arg, **kw)
@@ -232,10 +240,10 @@ class ProgramBase(object):
         self._args = self._parser.parse_args(*args, **kw)
         return self._args
 
-    #def _parse_known_args(self, *args, **kw):
-    #    self._args, self._unknown_args = \
-    #        self._parser.parse_known_args(*args, **kw)
-    #    return self._args
+    # def _parse_known_args(self, *args, **kw):
+    #     self._args, self._unknown_args = \
+    #         self._parser.parse_known_args(*args, **kw)
+    #     return self._args
 
     @staticmethod
     def _pb_option(*args, **kw):
@@ -296,18 +304,23 @@ class ProgramBase(object):
 def option(*args, **keywords):
     """\
  args:
-    name or flags - Either a name or a list of option strings, e.g. foo or -f, --foo.
+    name or flags - Either a name or a list of option strings, e.g. foo or
+                    -f, --foo.
  keywords:
-    action - The basic type of action to be taken when this argument is encountered at the command line.
-    nargs - The number of command-line arguments that should be consumed.
-    const - A constant value required by some action and nargs selections.
-    default - The value produced if the argument is absent from the command line.
-    type - The type to which the command-line argument should be converted.
-    choices - A container of the allowable values for the argument.
-    required - Whether or not the command-line option may be omitted (optionals only).
-    help - A brief description of what the argument does.
-    metavar - A name for the argument in usage messages.
-    dest - The name of the attribute to be added to the object returned by parse_args().
+    action   - The basic type of action to be taken when this argument is
+               encountered at the command line.
+    nargs    - The number of command-line arguments that should be consumed.
+    const    - A constant value required by some action and nargs selections.
+    default  - The value produced if the argument is absent from the command
+               line.
+    type     - The type to which the command-line argument should be converted.
+    choices  - A container of the allowable values for the argument.
+    required - Whether or not the command-line option may be omitted
+               (optionals only).
+    help     - A brief description of what the argument does.
+    metavar  - A name for the argument in usage messages.
+    dest     - The name of the attribute to be added to the object returned by
+               parse_args().
     """
     return ProgramBase._pb_option(*args, **keywords)
 
@@ -389,7 +402,7 @@ class CountAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         try:
             val = getattr(namespace, self.dest) + self.const
-        except TypeError: # probably None
+        except TypeError:  # probably None
             val = self.const
         setattr(namespace, self.dest, val)
 
@@ -420,9 +433,9 @@ class AppConfig(object):
         self._file_name = None
         warning = kw.pop('warning', None)
         self._parser = parser = kw.pop('parser', None)
-        #create = kw.pop('create', True)
-        #if not create:
-        #    return
+        # create = kw.pop('create', True)
+        # if not create:
+        #     return
         file_name = self.get_file_name(
             kw.pop('filename', None),
             warning=warning,
@@ -431,19 +444,19 @@ class AppConfig(object):
             self.add_save_defaults(parser)
             if parser._subparsers is not None:
                 assert isinstance(parser._subparsers, argparse._ArgumentGroup)
-                subparsers = {}  # aliases filtered out
+                # subparsers = {}  # aliases filtered out
                 for spa in parser._subparsers._group_actions:
                     if not isinstance(spa, argparse._SubParsersAction):
                         continue
-                    #print ('spa ', type(spa), spa)
+                    # print ('spa ', type(spa), spa)
                     for key in spa.choices:
-                        #print ('key ', key)
+                        # print ('key ', key)
                         sp = spa.choices[key]
-                        #print ('sp ', type(sp), sp)
+                        # print ('sp ', type(sp), sp)
                         self.add_save_defaults(sp)
         self._config = self.Config(file_name, **kw)
         argparse._SubParsersAction.__call__ = self.sp__call__
-        #super(AppConfig, self).__init__(file_name, **kw)
+        # super(AppConfig, self).__init__(file_name, **kw)
 
     def get_file_name(self, file_name=None, warning=None, add_save=None):
         if self._file_name:
@@ -468,7 +481,7 @@ class AppConfig(object):
                             sys.exit(1)
         expanded_file_names = [os.path.expanduser(x) for x in
                                self.possible_config_file_names]
-        #print(expanded_file_names)
+        # print(expanded_file_names)
         existing = [x for x in expanded_file_names if os.path.exists(x)]
         # possible check for existence of preferred directory and less
         # preferred existing file
@@ -486,7 +499,7 @@ class AppConfig(object):
             os.mkdir(dir_name)
             warning('created directory', dir_name)
         except OSError:
-            #warning('did not create directory ', dir_name)
+            # warning('did not create directory ', dir_name)
             pass
         if not self.has_config() and add_config_to_parser:
             if '/XXXtmp/' not in self._file_name:
@@ -513,11 +526,12 @@ class AppConfig(object):
             return
         assert isinstance(parser._subparsers, argparse._ArgumentGroup)
         progs = set()
-        subparsers = {}  # aliases filtered out
+        # subparsers = {}  # aliases filtered out
         for sp in parser._subparsers._group_actions:
             if not isinstance(sp, argparse._SubParsersAction):
                 continue
-            for k, action in sp.choices.iteritems():
+            for k in sp.choices:
+                action = sp.choices[k]
                 if self.query_add(progs, action.prog):
                     self._set_section_defaults(action, k, glbl=_glbl)
 
@@ -527,7 +541,7 @@ class AppConfig(object):
             if isinstance(action,
                           (argparse._HelpAction,
                            argparse._VersionAction,
-                           #SubParsersAction._AliasesChoicesPseudoAction,
+                           # SubParsersAction._AliasesChoicesPseudoAction,
                            )):
                 continue
             for x in action.option_strings:
@@ -561,13 +575,13 @@ class AppConfig(object):
         opt = parser._optionals
         print('paropt', self._parser._optionals, len(opt._actions),
               len(opt._group_actions))
-        #for a in self._parser._optionals._group_actions:
-        #    print('    ', a)
+        # for a in self._parser._optionals._group_actions:
+        #     print('    ', a)
         pargs = self._parser.parse_args(*args, **kw)
         if hasattr(pargs, 'save_defaults') and pargs.save_defaults:
             self.extract_default(opt, pargs)
-            #for elem in self._parser._optionals._defaults:
-            #    print('elem ', elem)
+            # for elem in self._parser._optionals._defaults:
+            #     print('elem ', elem)
             if hasattr(parser, '_sub_parser_sel'):
                 name, sp = parser._sub_parser_sel
                 print('====sp', sp)
@@ -578,7 +592,7 @@ class AppConfig(object):
 
     def extract_default(self, opt, pargs, name='global'):
         for a in opt._group_actions:
-            #print('+++++', name, a)
+            # print('+++++', name, a)
             if isinstance(a, (argparse._HelpAction,
                               argparse._VersionAction,
                               )):
@@ -597,7 +611,7 @@ class AppConfig(object):
         pn = self._package_name
         if ext is None:
             ext = '.ini'
-        #ud = '~'
+        # ud = '~'
         if sys.platform.startswith('linux'):
             ud = os.environ['HOME']
             ret_val = [
@@ -610,7 +624,7 @@ class AppConfig(object):
             ]
         elif sys.platform.startswith('win32'):
             ud = AppConfig._config_dir()
-            #dotini = self._package_name + '.ini'  # this should be last elem
+            # dotini = self._package_name + '.ini'  # this should be last elem
             ret_val = [
                 os.path.join(ud, pn, pn + ext),  # %APPDATA%/repo/repo.ini
                 os.path.join(ud, pn + ext),  # %APPDATA%/repo.ini
@@ -679,8 +693,8 @@ class AppConfig(object):
             glob_parser._sub_parser_sel = (parser_name, parser)
         except KeyError:
             tup = parser_name, ', '.join(self._name_parser_map)
-            msg = _('unknown parser %r (choices: %s)') % tup
-            raise ArgumentError(self, msg)
+            msg = ('unknown parser %r (choices: %s)') % tup
+            raise argparse.ArgumentError(self, msg)
 
         # parse all the remaining options into the namespace
         # store any unrecognized options on the object, so that the top
@@ -688,32 +702,12 @@ class AppConfig(object):
         namespace, arg_strings = parser.parse_known_args(
             arg_strings, namespace)
         if arg_strings:
-            vars(namespace).setdefault(_UNRECOGNIZED_ARGS_ATTR, [])
-            getattr(namespace, _UNRECOGNIZED_ARGS_ATTR).extend(arg_strings)
+            vars(namespace).setdefault(argparse._UNRECOGNIZED_ARGS_ATTR, [])
+            getattr(namespace, argparse._UNRECOGNIZED_ARGS_ATTR).extend(arg_strings)
 
 
-# < from ruamel.bws.__init__ import _convert_version, version_info, __version__
-def _convert_version(tup):
-    """create a PEP 386 pseudo-format conformant string from tuple tup"""
-    ret_val = str(tup[0])  # first is always digit
-    next_sep = "."  # separator for next extension, can be "" or "."
-    for x in tup[1:]:
-        if isinstance(x, int):
-            ret_val += next_sep + str(x)
-            next_sep = '.'
-            continue
-        first_letter = x[0].lower()
-        next_sep = ''
-        if first_letter in 'abcr':
-            ret_val += 'rc' if first_letter == 'r' else first_letter
-        elif first_letter in 'pd':
-            ret_val += '.post' if first_letter == 'p' else '.dev'
-    return ret_val
+from ruamel.bws import __version__
 
-
-version_info = (0, 1, 2)
-__version__ = _convert_version(version_info)
-# <
 
 class BrowserWorkspace(object):
     """"""
@@ -726,14 +720,14 @@ class BrowserWorkspace(object):
         self._browsers = {}
         self._nr_windows = 0
         self._format_version = 1
-        x = self._path_pattern = os.path.join(
+        self._path_pattern = os.path.join(
             os.path.dirname(self._config.get_file_name()),
             '{}.bws'
         )
 
     def ewmh(self):
         NR_PARTS = 8
-        res = subprocess.check_output('wmctrl -l -G -p'.split())
+        res = subprocess.check_output('wmctrl -l -G -p'.split()).decode('utf-8')
         start = []
         for key in self._config._config:
             if not key.startswith('br-'):
@@ -759,11 +753,11 @@ class BrowserWorkspace(object):
             pids = parts[2]
             parts = [parts[0]] + [int(x) for x in parts[1:NR_PARTS-1]] + \
                 [z.decode('utf-8') for z in parts[NR_PARTS-1:]]
-            pid = parts[2]
+            # pid = parts[2]
             exe = '/proc/' + pids + '/exe'
             try:
                 full_path = os.path.realpath(exe)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == os.errno.EACCES:
                     continue
                 raise
@@ -812,7 +806,7 @@ class BrowserWorkspace(object):
             print("index | date-time-stamp | nr windows")
             for i, saved in enumerate(list_of_saves):
                 num_windows = ''
-                with file(saved) as fp:
+                with open(saved) as fp:
                     data = fp.read(20)
                     if data[0] == '[':
                         # second number, the one before dict
@@ -878,6 +872,7 @@ def to_stdout(*args):
 _default_minwin = 3
 _default_keep = 10
 
+
 class bws_cmd(ProgramBase):
     """handle commmandline options for BrowserWorkspace"""
 
@@ -900,7 +895,7 @@ class bws_cmd(ProgramBase):
         pass
 
     def run(self):
-        if self._args.func:
+        if hasattr(self._args, 'func') and self._args.func:
             return self._args.func()
 
     def parse_args(self):
@@ -919,8 +914,7 @@ class bws_cmd(ProgramBase):
             cfg = self._config._config
             cfg['global'] = dict(keep=_default_keep)
             cfg['save'] = dict(minwin=_default_minwin)
-            cfg['br-firefox'] = dict(basenamestart=
-                                     ['firefox-trunk', 'firefox'])
+            cfg['br-firefox'] = dict(basenamestart=['firefox-trunk', 'firefox'])
             cfg['br-chrome'] = dict(basenamestart=['chromium-browser'])
             cfg.write()
         self._config.set_defaults()
@@ -954,7 +948,7 @@ def main():
     n = bws_cmd()
     n.parse_args()
     res = n.run()
-    sys.exit(res) # if res is None -> 0 as exit
+    sys.exit(res)  # if res is None -> 0 as exit
 
 if __name__ == '__main__':
     main()
