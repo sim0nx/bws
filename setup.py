@@ -618,10 +618,11 @@ def main():
         package_data=nsp.package_data,
         ext_modules=nsp.ext_modules,
     )
-    if '--version' not in sys.argv or '--verbose' in sys.argv:
-        for k in sorted(kw):
-            v = kw[k]
-            print(k, '->', v)
+    if '--version' not in sys.argv:
+        if 'sdist' in sys.argv or '--verbose' in sys.argv:
+            for k in sorted(kw):
+                v = kw[k]
+                print(k, '->', v)
     with open('README.rst') as fp:
         kw['long_description'] = fp.read()
     if nsp.wheel(kw, setup):

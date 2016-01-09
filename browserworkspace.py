@@ -752,7 +752,7 @@ class BrowserWorkspace(object):
             parts = line.split(None, NR_PARTS)
             pids = parts[2]
             parts = [parts[0]] + [int(x) for x in parts[1:NR_PARTS-1]] + \
-                [z.decode('utf-8') for z in parts[NR_PARTS-1:]]
+                [z for z in parts[NR_PARTS-1:]]
             # pid = parts[2]
             exe = '/proc/' + pids + '/exe'
             try:
@@ -784,7 +784,7 @@ class BrowserWorkspace(object):
         _p = self._path_pattern.format('{:%Y%m%d-%H%M%S}')
         file_name = _p.format(datetime.datetime.now())
         # print(json.dumps(self._browsers, indent=2))
-        with file(file_name, 'w') as fp:
+        with open(file_name, 'w') as fp:
             json.dump([self._format_version, self._nr_windows, self._browsers],
                       fp, indent=2, separators=(',', ': '))
         self.read(keep=self._args.keep)
@@ -830,7 +830,7 @@ class BrowserWorkspace(object):
             self.ewmh()
         file_name = self.read(position)
         # print ('filename', file_name)
-        with file(file_name, 'r') as fp:
+        with open(file_name, 'r') as fp:
             data = fp.read()
             # if data[0] == '[':
             data = json.loads(data)
