@@ -706,7 +706,7 @@ class AppConfig(object):
             getattr(namespace, argparse._UNRECOGNIZED_ARGS_ATTR).extend(arg_strings)
 
 
-from ruamel.bws import __version__
+from ruamel.bws import __version__  # NOQA
 
 
 class BrowserWorkspace(object):
@@ -774,6 +774,10 @@ class BrowserWorkspace(object):
                 self._nr_windows += 1
 
     def save(self):
+        if self._args.check and not os.path.exists(self._args.unlock_file):
+            if self._args.verbose > 0:
+                print('no unlock file ({}) found'.format(self._args.unlock_file))
+            return
         if not self._browsers:
             self.ewmh()
         if self._nr_windows < self._args.minwin and not self._args.force:
@@ -858,6 +862,9 @@ class BrowserWorkspace(object):
                         print(self.cmdlst_as_string(cmd))
                     print(subprocess.check_output(cmd))
                     k['title'] = None  # don't move it again
+        if self._args.unlock:
+            with open(self._args.unlock_file, 'w') as fp:
+                pass
 
     @staticmethod
     def cmdlst_as_string(cmd):
@@ -889,6 +896,8 @@ class bws_cmd(ProgramBase):
     @option('--keep',
             help='max number of old saves to keep (default: %(default)s)',
             type=int, default=_default_keep, global_option=True)
+    @option('--unlock-file', default='/tmp/bws.restored', metavar='FILE',
+            help="file that has to exist for if doing bws save --check (default: %(default)s)")
     @version('version: ' + __version__)
     def _pb_init(self):
         # special name for which attribs are included in help
@@ -928,6 +937,8 @@ class bws_cmd(ProgramBase):
             "new save file (default: %(default)s)")
     @option('--force', action='store_true', help="override (configured) minwin"
             " setting")
+    @option('--check', action='store_true',
+            help="exit if file specified with --lock doesn't exist")
     def save(self):
         bws = BrowserWorkspace(self._args, self._config)
         return bws.save()
@@ -939,6 +950,8 @@ class bws_cmd(ProgramBase):
 
     @sub_parser(help='restore workspace setup (defaults to most recent)')
     @option('position', nargs='?', type=int, default=0)
+    @option('--unlock', action='store_true',
+            help="create file specified by --unlock-file")
     def restore(self):
         bws = BrowserWorkspace(self._args, self._config)
         return bws.restore(self._args.position)

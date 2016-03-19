@@ -3,6 +3,17 @@
 
 from __future__ import print_function
 
+# # __init__.py parser
+
+import sys
+import os
+import platform
+from _ast import *       # NOQA
+from ast import parse
+
+from setuptools import setup, Extension, Distribution  # NOQA
+from setuptools.command import install_lib
+
 if __name__ != '__main__':
     raise NotImplementedError('should never include setup.py')
 
@@ -10,12 +21,8 @@ if __name__ != '__main__':
 
 full_package_name = None
 
-# # __init__.py parser
-
-import sys
-from _ast import *       # NOQA
-from ast import parse
-
+if __name__ != '__main__':
+    raise NotImplementedError('should never include setup.py')
 
 if sys.version_info < (3, ):
     string_type = basestring
@@ -30,7 +37,7 @@ if sys.version_info < (3, 4):
     class NameConstant:
         pass
 
-if sys.version_info < (2, 7):
+if sys.version_info < (2, 7) or platform.python_implementation() == 'Jython':
     class Set():
         pass
 
@@ -140,9 +147,10 @@ def _package_data(fn):
                         w = len(str(to_line))
                         for index, line in enumerate(lines):
                             if from_line <= index <= to_line:
-                                print(u"{:{}}: {}".format(index, w, line), end=u'')
+                                print(u"{0:{1}}: {2}".format(index, w, line).encode('utf-8'),
+                                      end=u'')
                                 if index == e.lineno - 1:
-                                    print(u"{:{}}  {}^--- {}".format(
+                                    print(u"{0:{1}}  {2}^--- {3}".format(
                                         u' ', w, u' ' * e.offset, e.node))
                         raise
                     break
@@ -158,14 +166,6 @@ exclude_files = [
     'setup.py',
 ]
 
-# # imports
-import os
-import sys
-import platform
-
-from setuptools import setup, Extension, Distribution  # NOQA
-from setuptools.command import install_lib
-
 
 # # helper
 def _check_convert_version(tup):
@@ -178,7 +178,7 @@ def _check_convert_version(tup):
         if isinstance(x, int):
             nr_digits += 1
             if nr_digits > 2:
-                raise ValueError("too many consecutive digits " + ret_val)
+                raise ValueError("too many consecutive digits after " + ret_val)
             ret_val += next_sep + str(x)
             next_sep = '.'
             continue
@@ -187,7 +187,7 @@ def _check_convert_version(tup):
         if first_letter in 'abcr':
             if post_dev:
                 raise ValueError("release level specified after "
-                                 "post/dev:" + x)
+                                 "post/dev: " + x)
             nr_digits = 0
             ret_val += 'rc' if first_letter == 'r' else first_letter
         elif first_letter in 'pd':
@@ -196,6 +196,9 @@ def _check_convert_version(tup):
             ret_val += '.post' if first_letter == 'p' else '.dev'
         else:
             raise ValueError('First letter of "' + x + '" not recognised')
+    # .dev and .post need a number otherwise setuptools normalizes and complains
+    if nr_digits == 1 and post_dev:
+        ret_val += '0'
     return ret_val
 
 
@@ -231,7 +234,7 @@ class NameSpacePackager(object):
         self._pkg = [None, None]  # required and pre-installable packages
         if sys.argv[0] == 'setup.py' and sys.argv[1] == 'install' and \
            '--single-version-externally-managed' not in sys.argv:
-            print('error: have to install with "pip install ."')
+            print('error: you have to install with "pip install ."')
             sys.exit(1)
         # If you only support an extension module on Linux, Windows thinks it
         # is pure. That way you would get pure python .whl files that take
@@ -371,17 +374,39 @@ class NameSpacePackager(object):
                         ' installs for package name {0}'.format(fn))
 
     def entry_points(self, script_name=None, package_name=None):
+        """normally called without explicit script_name and package name
+        the default console_scripts entry depends on the existence of __main__.py:
+        if that file exists then the function main() in there is used, otherwise
+        the in __init__.py.
+
+        the _package_data entry_points key/value pair can be explicitly specified
+        including a "=" character. If the entry is True or 1 the
+        scriptname is the last part of the full package path (split on '.')
+        if the ep entry is a simple string without "=", that is assumed to be
+        the name of the script.
+        """
+        def pckg_entry_point(name):
+            return '{0}{1}:main'.format(
+                name,
+                '.__main__' if os.path.exists('__main__.py') else '',
+            )
+
         ep = self._pkg_data.get('entry_points', True)
         if ep is None:
             return None
         if ep not in [True, 1]:
-            return {'console_scripts': [ep]}
+            if '=' in ep:
+                # full specification of the entry point like
+                # entry_points=['yaml = ruamel.yaml.cmd:main'],
+                return {'console_scripts': [ep]}
+            # assume that it is just the script name
+            script_name = ep
         if package_name is None:
             package_name = self.full_package_name
         if not script_name:
             script_name = package_name.split('.')[-1]
         return {'console_scripts': [
-            '{0} = {1}:main'.format(script_name, package_name),
+            '{0} = {1}'.format(script_name, pckg_entry_point(package_name)),
         ]}
 
     @property
@@ -402,12 +427,16 @@ class NameSpacePackager(object):
 
     @property
     def license(self):
+        """return the license field from _package_data, None means MIT"""
         lic = self._pkg_data.get('license')
         if lic is None:
             # lic_fn = os.path.join(os.path.dirname(__file__), 'LICENSE')
             # assert os.path.exists(lic_fn)
             return "MIT license"
-        return license
+        return lic
+
+    def has_mit_lic(self):
+        return 'MIT' in self.license
 
     @property
     def description(self):
@@ -416,10 +445,10 @@ class NameSpacePackager(object):
     @property
     def status(self):
         # αβ
-        status = self._pkg_data.get('status', u'β')
-        if status == u'α':
+        status = self._pkg_data.get('status', u'β').lower()
+        if status in [u'α', u'alpha']:
             return (3, 'Alpha')
-        elif status == u'β':
+        elif status in [u'β', u'beta']:
             return (4, 'Beta')
         elif u'stable' in status.lower():
             return (5, 'Production/Stable')
@@ -430,12 +459,15 @@ class NameSpacePackager(object):
         return [
             'Development Status :: {0} - {1}'.format(*self.status),
             'Intended Audience :: Developers',
-            'License :: ' + ('Other/Proprietary License'
-                             if self.pn(self._pkg_data.get('license')) else
-                             'OSI Approved :: MIT License'),
+            'License :: ' + ('OSI Approved :: MIT' if self.has_mit_lic()
+                             else 'Other/Proprietary') + ' License',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
         ] + [self.pn(x) for x in self._pkg_data.get('classifiers', [])]
+
+    @property
+    def keywords(self):
+        return self.pn(self._pkg_data.get('keywords'))
 
     @property
     def install_requires(self):
@@ -471,6 +503,8 @@ class NameSpacePackager(object):
             pyver = 'py{0}{1}'.format(*sys.version_info)
         elif implementation == 'PyPy':
             pyver = 'pypy' if sys.version_info < (3, ) else 'pypy3'
+        elif implementation == 'Jython':
+            pyver = 'jython'
         packages.extend(ir.get(pyver, []))
         for p in packages:
             # package name starting with * means use local source tree,  non-published
@@ -484,7 +518,7 @@ class NameSpacePackager(object):
     @property
     def data_files(self):
         df = self._pkg_data.get('data_files', [])
-        if self._pkg_data.get('license') is None:
+        if self.has_mit_lic():
             df.append('LICENSE')
         if not df:
             return None
@@ -493,7 +527,7 @@ class NameSpacePackager(object):
     @property
     def package_data(self):
         df = self._pkg_data.get('data_files', [])
-        if self._pkg_data.get('license') is None:
+        if self.has_mit_lic():
             # include the file
             df.append('LICENSE')
             # but don't install it
@@ -510,8 +544,16 @@ class NameSpacePackager(object):
             return self._ext_modules
         if '--version' in sys.argv:
             return None
-        # if sys.platform == "win32":
-        #     return None
+        if platform.python_implementation() == 'Jython':
+            return None
+        if sys.platform == "win32" and not self._pkg_data.get('win32bin'):
+            return None
+        try:
+            plat = sys.argv.index('--plat-name')
+            if 'win' in sys.argv[plat + 1]:
+                return None
+        except ValueError:
+            pass
         import tempfile
         import shutil
         from textwrap import dedent
@@ -597,6 +639,13 @@ class NameSpacePackager(object):
 
 # # call setup
 def main():
+    dump_kw = '--dump-kw'
+    if dump_kw in sys.argv:
+        import wheel
+        import distutils
+        print('python:   ', sys.version)
+        print('distutils:', distutils.__version__)
+        print('wheel:    ', wheel.__version__)
     nsp = NameSpacePackager(pkg_data)
     nsp.check()
     nsp.create_dirs()
@@ -615,14 +664,16 @@ def main():
         install_requires=nsp.install_requires,
         license=nsp.license,
         classifiers=nsp.classifiers,
+        keywords=nsp.keywords,
         package_data=nsp.package_data,
         ext_modules=nsp.ext_modules,
     )
-    if '--version' not in sys.argv:
-        if 'sdist' in sys.argv or '--verbose' in sys.argv:
-            for k in sorted(kw):
-                v = kw[k]
-                print(k, '->', v)
+    if '--version' not in sys.argv and ('--verbose' in sys.argv or dump_kw in sys.argv):
+        for k in sorted(kw):
+            v = kw[k]
+            print('  "{0}": "{1}",'.format(k, v))
+    if dump_kw in sys.argv:
+        sys.argv.remove(dump_kw)
     with open('README.rst') as fp:
         kw['long_description'] = fp.read()
     if nsp.wheel(kw, setup):

@@ -54,7 +54,7 @@ and select [Restore] as necessary.
 Chrome needs to be configured to allow restoring by selecting "Continue where
 you left off", in the `settings menu
 <chrome://settings/#startup-section-content>`_. Firefox always seems to ask
-when a crash occured, but you can also explicitly `set the prefernces
+when a crash occured, but you can also explicitly `set the preferences
 <about:preferences#general>`_ to "Show my windows and tabs from last time"
 
 The program keeps configuration defaults and restore information in (by
@@ -70,6 +70,19 @@ for restoring (in the configuration file or on the commandline; the
 commandline overrules the configuration file). This minimum prevents saves of
 browser windows when a single window is open asking for confirmation to
 restore previously opened windows.
+
+Cron
+====
+
+I run ``bws`` from crontab file every five minutes like this::
+
+  */5 *  *   *   *     DISPLAY=:0 /home/anthon/.venv/27/bin/bws save --check
+
+the ``--check`` only works if the file specified with ``--unlock-file`` exists. This
+defaults to ``/tmp/bws.restored`` (which is on a temporary filesystem).
+
+Issuing ``bws restore`` removes this unlock file, unless you specify --unlock
+
 
 ToDo
 ====
