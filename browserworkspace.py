@@ -830,6 +830,11 @@ class BrowserWorkspace(object):
         return list_of_saves[spec]
 
     def restore(self, position):
+        if not self._args.unlock and os.path.exists(self._args.unlock_file):
+            if self._args.verbose > 0:
+                print('removing unlock file ({})'.format(self._args.unlock_file))
+            os.remove(self._args.unlock_file)
+            return
         if not self._browsers:
             self.ewmh()
         file_name = self.read(position)

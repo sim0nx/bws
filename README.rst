@@ -81,7 +81,8 @@ I run ``bws`` from crontab file every five minutes like this::
 the ``--check`` only works if the file specified with ``--unlock-file`` exists. This
 defaults to ``/tmp/bws.restored`` (which is on a temporary filesystem).
 
-Issuing ``bws restore`` removes this unlock file, unless you specify --unlock
+Issuing ``bws restore`` removes this unlock file, unless you specify `--unlock`, which I do
+on the last run.
 
 
 ToDo
