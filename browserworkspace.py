@@ -802,6 +802,13 @@ class BrowserWorkspace(object):
         """
         list_of_saves = sorted(glob.glob(self._path_pattern.format('*')),
                                reverse=True)
+        nlos = []
+        for file_name in list_of_saves:
+            if os.path.getsize(file_name) == 0:
+                os.remove(file_name)
+            else:
+                nlos.append(file_name)
+            list_of_saves = nlos
         if keep is not None:
             for file_name in list_of_saves[keep:]:
                 os.remove(file_name)
@@ -967,6 +974,7 @@ def main():
     n.parse_args()
     res = n.run()
     sys.exit(res)  # if res is None -> 0 as exit
+
 
 if __name__ == '__main__':
     main()

@@ -1,18 +1,20 @@
 # # header
 # coding: utf-8
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import, division, unicode_literals
 
 # # __init__.py parser
 
 import sys
 import os
-import platform
+import datetime
+sys.path = [path for path in sys.path if path not in [os.getcwd(), '']]
+import platform          # NOQA
 from _ast import *       # NOQA
-from ast import parse
+from ast import parse    # NOQA
 
 from setuptools import setup, Extension, Distribution  # NOQA
-from setuptools.command import install_lib
+from setuptools.command import install_lib             # NOQA
 
 if __name__ != '__main__':
     raise NotImplementedError('should never include setup.py')
@@ -36,6 +38,12 @@ if sys.version_info < (3, 4):
 
     class NameConstant:
         pass
+
+if sys.version_info < (3, ):
+    open_kw = dict()
+else:
+    open_kw = dict(encoding='utf-8')
+
 
 if sys.version_info < (2, 7) or platform.python_implementation() == 'Jython':
     class Set():
@@ -117,7 +125,7 @@ def literal_eval(node_or_string):
 # parses python ( "= dict( )" ) or ( "= {" )
 def _package_data(fn):
     data = {}
-    with open(fn) as fp:
+    with open(fn, **open_kw) as fp:
         parsing = False
         lines = []
         for line in fp.readlines():
@@ -234,6 +242,9 @@ class NameSpacePackager(object):
         self._pkg = [None, None]  # required and pre-installable packages
         if sys.argv[0] == 'setup.py' and sys.argv[1] == 'install' and \
            '--single-version-externally-managed' not in sys.argv:
+            if os.environ.get('READTHEDOCS', None) == 'True':
+                os.system('pip install .')
+                sys.exit(0)
             print('error: you have to install with "pip install ."')
             sys.exit(1)
         # If you only support an extension module on Linux, Windows thinks it
@@ -280,6 +291,9 @@ class NameSpacePackager(object):
                 x = os.path.join(d, '__init__.py')
                 if os.path.exists(x):
                     self._split.append(self.full_package_name + '.' + d)
+            if sys.version_info < (3, ):
+                self._split = [(y.encode('utf-8') if isinstance(y, unicode) else y)
+                               for y in self._split]
         return self._split
 
     @property
@@ -498,6 +512,8 @@ class NameSpacePackager(object):
             return self._pkg
         # 'any' for all builds, 'py27' etc for specifics versions
         packages = ir.get('any', [])
+        if isinstance(packages, string_type):
+            packages = packages.split()    # assume white space separated string
         implementation = platform.python_implementation()
         if implementation == 'CPython':
             pyver = 'py{0}{1}'.format(*sys.version_info)
