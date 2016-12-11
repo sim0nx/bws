@@ -5,7 +5,7 @@ from __future__ import absolute_import
 
 _package_data = dict(
     full_package_name="ruamel.bws",
-    version_info=(0, 3, 0),
+    version_info=(0, 3, 1),
     author='Anthon van der Neut',
     description="browser restore to workspace",
     author_email='a.van.der.neut@ruamel.eu',

@@ -834,6 +834,10 @@ class BrowserWorkspace(object):
             return
         if spec is None:
             spec = 0
+        if spec >= len(list_of_saves):
+            print('You have not enough saved browser workspace data sets to restore by '
+                  'index', spec)
+            sys.exit(1)
         return list_of_saves[spec]
 
     def restore(self, position):
