@@ -82,7 +82,7 @@ the ``--check`` only works if the file specified with ``--unlock-file`` exists. 
 defaults to ``/tmp/bws.restored`` (which is on a temporary filesystem).
 
 Issuing ``bws restore`` removes this unlock file, unless you specify `--unlock`, which I do
-on the last run.
+on the last run, after Firefox has reloaded all pages, and restoring is complete..
 
 
 ToDo

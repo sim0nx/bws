@@ -954,7 +954,7 @@ class bws_cmd(ProgramBase):
     @option('--force', action='store_true', help="override (configured) minwin"
             " setting")
     @option('--check', action='store_true',
-            help="exit if file specified with --lock doesn't exist")
+            help="exit if file specified with --unlock-file doesn't exist")
     def save(self):
         bws = BrowserWorkspace(self._args, self._config)
         return bws.save()
