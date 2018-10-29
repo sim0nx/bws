@@ -19,6 +19,7 @@ they currently aren't.
 
 A partial solution
 ==================
+
 But browser windows usually have the name of the page
 visited in the title, which makes instances of the browser windows relatively
 uniquely identifiable. Based on that you can save the state of the browser
@@ -47,15 +48,19 @@ You can also install the
 Usage
 =====
 
-Run ``bws save`` to save the current browser windows, ``bws restore`` to
-restore the latest saved setup. Before restoring reopen the browser windows
-and select [Restore] as necessary.
+Run ``bws save`` to save the current browser windows, ``bws restore``
+to restore the latest saved setup. Before restoring using ``bws
+restore``, reopen the browser windows and select [Restore] as
+necessary.
 
 Chrome needs to be configured to allow restoring by selecting "Continue where
 you left off", in the `settings menu
 <chrome://settings/#startup-section-content>`_. Firefox always seems to ask
 when a crash occured, but you can also explicitly `set the preferences
 <about:preferences#general>`_ to "Show my windows and tabs from last time"
+
+Configuration
+=============
 
 The program keeps configuration defaults and restore information in (by
 default) ``~/.config/bws`` in ``bws.ini`` resp. ``*.bws`` files. Multiple
@@ -70,6 +75,17 @@ for restoring (in the configuration file or on the commandline; the
 commandline overrules the configuration file). This minimum prevents saves of
 browser windows when a single window is open asking for confirmation to
 restore previously opened windows.
+
+Chrome
+------
+
+Chrome's executable used to be called ``chromium-browser`` and that is what you find 
+in config files of pre-0.3.3 installations. You might want to upgrade and either
+remove the ``bws.ini`` file (so it will be regenerated), or make the chrome entry read::
+
+  [br-chrome]
+  basenamestart = chromium-browser, chrome
+
 
 Cron
 ====

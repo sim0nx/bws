@@ -17,9 +17,9 @@ from configobj import ConfigObj
 PY3 = sys.version_info[0] == 3
 
 if PY3:
-    string_types = str,
+    string_types = (str,)
 else:
-    string_types = basestring,
+    string_types = (basestring,)  # NOQA
 
 
 # < from ruamel.std.argparse import ProgramBase, option, sub_parser, version, SmartFormatter
@@ -33,6 +33,7 @@ class ProgramBase(object):
     - aliases
 
     """
+
     _methods_with_sub_parsers = []
 
     def __init__(self, *args, **kw):
@@ -54,8 +55,7 @@ class ProgramBase(object):
         def add_subparsers(method_name_list, parser, level=0):
             if not method_name_list:
                 return None
-            ssp = parser.add_subparsers(
-                dest="subparser_level_{0}".format(level),)
+            ssp = parser.add_subparsers(dest='subparser_level_{0}'.format(level))
             for method_name in method_name_list:
                 # print('method', '  ' * level, method_name)
                 method = getattr(self, method_name)
@@ -63,16 +63,14 @@ class ProgramBase(object):
                 info = method._sub_parser
                 info['level'] = level
                 if level > 0:
-                    method._sub_parser['parent'] = \
-                        method._sub_parser['kw'].pop('_parent')
+                    method._sub_parser['parent'] = method._sub_parser['kw'].pop('_parent')
                 arg = method._sub_parser['args']
                 if not arg or not isinstance(arg[0], string_types):
                     arg = list(arg)
                     arg.insert(0, method.__name__)
                 parser = ssp.add_parser(*arg, **method._sub_parser['kw'])
                 info['parser'] = parser
-                res = add_subparsers(info.get('ordering', []),
-                                     parser, level=level+1)
+                res = add_subparsers(info.get('ordering', []), parser, level=level + 1)
                 if res is None:
                     # only set default if there are no subparsers, otherwise
                     # defaults override
@@ -84,7 +82,7 @@ class ProgramBase(object):
                         # short option name only, add long option name
                         # based on function name
                         if len(arg[0]) == 2 and arg[0][0] == '-':
-                            if (fun_name):
+                            if fun_name:
                                 arg.insert(0, '--' + fun_name)
                     else:
                         # no option name
@@ -108,21 +106,20 @@ class ProgramBase(object):
                     if k == 'parser':
                         v = 'ArgumentParser()'
                     elif k == 'sp':
-                            v = '_SubParserAction()'
+                        v = '_SubParserAction()'
                     else:
                         v = info[k]
                     print('       ' + '  ' * level, k, '->', v)
-                dump(info.get('ordering', []), level=level+1)
+                dump(info.get('ordering', []), level=level + 1)
 
-        self._sub_parsers = add_subparsers(
-            ProgramBase._methods_with_sub_parsers, self._parser)
+        self._sub_parsers = add_subparsers(ProgramBase._methods_with_sub_parsers, self._parser)
 
         # this only does toplevel and global options
         for x in dir(self):
             if x.startswith('_') and x not in ['__init__', '_pb_init']:
                 continue
             method = getattr(self, x)
-            if hasattr(method, "_options"):  # not transfered to sub_parser
+            if hasattr(method, '_options'):  # not transfered to sub_parser
                 for o in method._options:
                     arg = o['args']
                     kw = o['kw']
@@ -148,11 +145,12 @@ class ProgramBase(object):
                 if x.startswith('_'):
                     continue
                 method = getattr(self, x)
-                if hasattr(method, "_sub_parser"):
+                if hasattr(method, '_sub_parser'):
                     if self._sub_parsers is None:
                         # create the top level subparsers
                         self._sub_parsers = self._parser.add_subparsers(
-                            dest="subparser_level_0", help=None)
+                            dest='subparser_level_0', help=None
+                        )
                     methods_with_sub_parsers.append(method)
             max_depth = 10
             level = 0
@@ -187,7 +185,7 @@ class ProgramBase(object):
                             parent._sub_parser['sp'] = ssp
                         sub_parsers = ssp
                     arg = method._sub_parser['args']
-                    if not arg or not isinstance(arg[0], basestring):
+                    if not arg or not isinstance(arg[0], string_types[0]):
                         arg = list(arg)
                         arg.insert(0, method.__name__)
                     sp = sub_parsers.add_parser(*arg,
@@ -423,6 +421,7 @@ class AppConfig(object):
         preserve comments when writing
         (write config if changed)
         """
+
         def __init__(self, file_name, **kw):
             ConfigObj.__init__(self, file_name, *kw)
 
@@ -436,10 +435,7 @@ class AppConfig(object):
         # create = kw.pop('create', True)
         # if not create:
         #     return
-        file_name = self.get_file_name(
-            kw.pop('filename', None),
-            warning=warning,
-        )
+        file_name = self.get_file_name(kw.pop('filename', None), warning=warning)
         if kw.pop('add_save', None):
             self.add_save_defaults(parser)
             if parser._subparsers is not None:
@@ -475,21 +471,20 @@ class AppConfig(object):
                         file_name = arg[9:]
                     else:
                         try:
-                            file_name = sys.argv[idx+2]
+                            file_name = sys.argv[idx + 2]
                         except IndexError:
                             print('--config needs an argument')
                             sys.exit(1)
-        expanded_file_names = [os.path.expanduser(x) for x in
-                               self.possible_config_file_names]
+        expanded_file_names = [os.path.expanduser(x) for x in self.possible_config_file_names]
         # print(expanded_file_names)
         existing = [x for x in expanded_file_names if os.path.exists(x)]
         # possible check for existence of preferred directory and less
         # preferred existing file
         # e.g. empty ~/.config/repo and existing ~/.repo/repo.ini
         if file_name and existing:
-            warning("Multiple configuration files", [file_name] + existing)
+            warning('Multiple configuration files', [file_name] + existing)
         elif len(existing) > 1:
-            warning("Multiple configuration files", existing)
+            warning('Multiple configuration files', existing)
         if file_name:
             self._file_name = os.path.expanduser(file_name)
         else:
@@ -503,15 +498,14 @@ class AppConfig(object):
             pass
         if not self.has_config() and add_config_to_parser:
             if '/XXXtmp/' not in self._file_name:
-                default_path = self._file_name.replace(
-                    os.path.expanduser('~/'), '~/')
+                default_path = self._file_name.replace(os.path.expanduser('~/'), '~/')
             else:
                 default_path = self._file_name
             self._parser.add_argument(
                 '--config',
                 metavar='FILE',
                 default=default_path,
-                help="set %(metavar)s as configuration file [%(default)s]",
+                help='set %(metavar)s as configuration file [%(default)s]',
             )
         return self._file_name
 
@@ -538,11 +532,14 @@ class AppConfig(object):
     def _set_section_defaults(self, parser, section, glbl=None):
         defaults = {}
         for action in parser._get_optional_actions():
-            if isinstance(action,
-                          (argparse._HelpAction,
-                           argparse._VersionAction,
-                           # SubParsersAction._AliasesChoicesPseudoAction,
-                           )):
+            if isinstance(
+                action,
+                (
+                    argparse._HelpAction,
+                    argparse._VersionAction,
+                    # SubParsersAction._AliasesChoicesPseudoAction,
+                ),
+            ):
                 continue
             for x in action.option_strings:
                 if not x.startswith('--'):
@@ -552,8 +549,7 @@ class AppConfig(object):
                     # store in .dest
                     defaults[action.dest] = self[section][x[2:]]
                 except KeyError:  # not in config file
-                    if glbl is not None and \
-                       getattr(action, "_global_option", False):
+                    if glbl is not None and getattr(action, '_global_option', False):
                         try:
                             defaults[action.dest] = self[glbl][x[2:]]
                         except KeyError:  # not in config file
@@ -751,8 +747,11 @@ class BrowserWorkspace(object):
         for line in res.splitlines():
             parts = line.split(None, NR_PARTS)
             pids = parts[2]
-            parts = [parts[0]] + [int(x) for x in parts[1:NR_PARTS-1]] + \
-                [z for z in parts[NR_PARTS-1:]]
+            parts = (
+                [parts[0]]
+                + [int(x) for x in parts[1 : NR_PARTS - 1]]
+                + [z for z in parts[NR_PARTS - 1 :]]
+            )
             # pid = parts[2]
             exe = '/proc/' + pids + '/exe'
             try:
@@ -940,7 +939,7 @@ class bws_cmd(ProgramBase):
             cfg['global'] = dict(keep=_default_keep)
             cfg['save'] = dict(minwin=_default_minwin)
             cfg['br-firefox'] = dict(basenamestart=['firefox-trunk', 'firefox'])
-            cfg['br-chrome'] = dict(basenamestart=['chromium-browser'])
+            cfg['br-chrome'] = dict(basenamestart=['chromium-browser', 'chrome'])
             cfg.write()
         self._config.set_defaults()
         self._parse_args()

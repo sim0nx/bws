@@ -231,6 +231,74 @@ class MyInstallLib(install_lib.install_lib):
         return alt_files
 
 
+class InMemoryZipFile(object):
+    def __init__(self, file_name=None):
+        try:
+            from cStringIO import StringIO
+        except ImportError:
+            from io import BytesIO as StringIO
+        import zipfile
+        self.zip_file = zipfile
+        # Create the in-memory file-like object
+        self._file_name = file_name
+        self.in_memory_data = StringIO()
+        # Create the in-memory zipfile
+        self.in_memory_zip = self.zip_file.ZipFile(
+            self.in_memory_data, "w", self.zip_file.ZIP_DEFLATED, False)
+        self.in_memory_zip.debug = 3
+
+    def append(self, filename_in_zip, file_contents):
+        '''Appends a file with name filename_in_zip and contents of
+        file_contents to the in-memory zip.'''
+        self.in_memory_zip.writestr(filename_in_zip, file_contents)
+        return self   # so you can daisy-chain
+
+    def write_to_file(self, filename):
+        '''Writes the in-memory zip to a file.'''
+        # Mark the files as having been created on Windows so that
+        # Unix permissions are not inferred as 0000
+        for zfile in self.in_memory_zip.filelist:
+            zfile.create_system = 0
+        self.in_memory_zip.close()
+        with open(filename, 'wb') as f:
+            f.write(self.in_memory_data.getvalue())
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self._file_name is None:
+            return
+        self.write_to_file(self._file_name)
+
+    def delete_from_zip_file(self, pattern=None, file_names=None):
+        """
+        zip_file can be a string or a zipfile.ZipFile object, the latter will be closed
+        any name in file_names is deleted, all file_names provided have to be in the ZIP
+        archive or else an IOError is raised
+        """
+        if pattern and isinstance(pattern, string_type):
+            import re
+            pattern = re.compile(pattern)
+        if file_names:
+            if not isinstance(file_names, list):
+                file_names = [file_names]
+        else:
+            file_names = []
+        with self.zip_file.ZipFile(self._file_name) as zf:
+            for l in zf.infolist():
+                if l.filename in file_names:
+                    file_names.remove(l.filename)
+                    continue
+                if pattern and pattern.match(l.filename):
+                    continue
+                self.append(l.filename, zf.read(l))
+            if file_names:
+                raise IOError('[Errno 2] No such file{}: {}'.format(
+                    '' if len(file_names) == 1 else 's',
+                    ', '.join([repr(f) for f in file_names])))
+
+
 class NameSpacePackager(object):
     def __init__(self, pkg_data):
         assert isinstance(pkg_data, dict)
@@ -238,15 +306,18 @@ class NameSpacePackager(object):
         self.full_package_name = self.pn(self._pkg_data['full_package_name'])
         self._split = None
         self.depth = self.full_package_name.count('.')
+        self.nested = self._pkg_data.get('nested', False)
         self.command = None
+        self.python_version()
         self._pkg = [None, None]  # required and pre-installable packages
         if sys.argv[0] == 'setup.py' and sys.argv[1] == 'install' and \
            '--single-version-externally-managed' not in sys.argv:
             if os.environ.get('READTHEDOCS', None) == 'True':
                 os.system('pip install .')
                 sys.exit(0)
-            print('error: you have to install with "pip install ."')
-            sys.exit(1)
+            if not os.environ.get('RUAMEL_NO_PIP_INSTALL_CHECK', False):
+                print('error: you have to install with "pip install ."')
+                sys.exit(1)
         # If you only support an extension module on Linux, Windows thinks it
         # is pure. That way you would get pure python .whl files that take
         # precedence for downloading on Linux over source with compilable C
@@ -333,6 +404,23 @@ class NameSpacePackager(object):
                 with open(os.path.join(d, '__init__.py'), 'w') as fp:
                     fp.write('import pkg_resources\n'
                              'pkg_resources.declare_namespace(__name__)\n')
+
+    def python_version(self):
+        supported = self._pkg_data.get('supported')
+        if supported is None:
+            return
+        if len(supported) == 1:
+            minimum = supported[0]
+        else:
+            for x in supported:
+                if x[0] == sys.version_info[0]:
+                    minimum = x
+                    break
+            else:
+                return
+        if sys.version_info < minimum:
+            print('minimum python version(s): ' + str(supported))
+            sys.exit(1)
 
     def check(self):
         try:
@@ -499,6 +587,8 @@ class NameSpacePackager(object):
         to be installed explicitly as they are not on PyPI
         install_requires should be  dict, with keys 'any', 'py27' etc
         or a list (which is as if only 'any' was defined
+
+        ToDo: update with: pep508 conditional dependencies
         """
         if self._pkg[0] is None:
             self._pkg[0] = []
@@ -514,6 +604,11 @@ class NameSpacePackager(object):
         packages = ir.get('any', [])
         if isinstance(packages, string_type):
             packages = packages.split()    # assume white space separated string
+        if self.nested:
+            # parent dir is also a package, make sure it is installed (need its .pth file)
+            parent_pkg = self.full_package_name.rsplit('.', 1)[0]
+            if parent_pkg not in packages:
+                packages.append(parent_pkg)
         implementation = platform.python_implementation()
         if implementation == 'CPython':
             pyver = 'py{0}{1}'.format(*sys.version_info)
@@ -530,6 +625,19 @@ class NameSpacePackager(object):
                 self._pkg[1].append(p)
             self._pkg[0].append(p)
         return self._pkg
+
+    @property
+    def extras_require(self):
+        """dict of conditions -> extra packages informaton required for installation
+        as of setuptools 33 doing `package ; python_version<=2.7' in install_requires
+        still doesn't work
+
+        https://www.python.org/dev/peps/pep-0508/
+        https://wheel.readthedocs.io/en/latest/index.html#defining-conditional-dependencies
+        https://hynek.me/articles/conditional-python-dependencies/
+        """
+        ep = self._pkg_data.get('extras_require')
+        return ep
 
     @property
     def data_files(self):
@@ -554,8 +662,16 @@ class NameSpacePackager(object):
 
     @property
     def ext_modules(self):
-        """check if the C module can be build by trying to compile a small
-            program against the libyaml development library"""
+        """check if all modules specified in the value for 'ext_modules' can be build
+        that value (if not None) is a list of dicts with 'name', 'src', 'lib'
+        Optional 'test' can be used to make sure trying to compile will work on the host
+
+        creates and return the external modules as Extensions, unless that
+        is not necessary at all for the action (like --version)
+
+        test existence of compiler by using export CC=nonexistent; export CXX=nonexistent
+        """
+
         if hasattr(self, '_ext_modules'):
             return self._ext_modules
         if '--version' in sys.argv:
@@ -564,12 +680,32 @@ class NameSpacePackager(object):
             return None
         if sys.platform == "win32" and not self._pkg_data.get('win32bin'):
             return None
+        if sys.platform == "win32":
+            if os.getenv("RUAMEL_FORCE_EXT_BUILD") is None:
+                return None
         try:
             plat = sys.argv.index('--plat-name')
             if 'win' in sys.argv[plat + 1]:
                 return None
         except ValueError:
             pass
+        self._ext_modules = []
+        no_test_compile = False
+        if '--restructuredtext' in sys.argv:
+            no_test_compile = True
+        elif 'sdist' in sys.argv:
+            no_test_compile = True
+        if no_test_compile:
+            for target in self._pkg_data.get('ext_modules', []):
+                ext = Extension(
+                    self.pn(target['name']),
+                    sources=[self.pn(x) for x in target['src']],
+                    libraries=[self.pn(x) for x in target.get('lib')],
+                )
+                self._ext_modules.append(ext)
+            return self._ext_modules
+
+        print('sys.argv', sys.argv)
         import tempfile
         import shutil
         from textwrap import dedent
@@ -578,16 +714,13 @@ class NameSpacePackager(object):
         import distutils.ccompiler
         from distutils.errors import CompileError, LinkError
 
-        self._ext_modules = []
         for target in self._pkg_data.get('ext_modules', []):  # list of dicts
-            test_code = target.get('test')
-            libraries = [self.pn(x) for x in target.get('lib')]
             ext = Extension(
                 self.pn(target['name']),
                 sources=[self.pn(x) for x in target['src']],
-                libraries=libraries,
+                libraries=[self.pn(x) for x in target.get('lib')],
             )
-            if not test_code:
+            if 'test' not in target:  # no test just hope it works
                 self._ext_modules.append(ext)
                 continue
             # write a temporary .c file to compile
@@ -595,24 +728,30 @@ class NameSpacePackager(object):
             try:
                 tmp_dir = tempfile.mkdtemp(prefix='tmp_ruamel_')
                 bin_file_name = 'test' + self.pn(target['name'])
+                print('test compiling', bin_file_name)
                 file_name = os.path.join(tmp_dir, bin_file_name + '.c')
-                with open(file_name, 'w') as fp:
+                with open(file_name, 'w') as fp:  # write source
                     fp.write(c_code)
-
                 # and try to compile it
                 compiler = distutils.ccompiler.new_compiler()
                 assert isinstance(compiler, distutils.ccompiler.CCompiler)
+                # do any platform specific initialisations
                 distutils.sysconfig.customize_compiler(compiler)
-
+                # make sure you can reach header files because compile does change dir
+                compiler.add_include_dir(os.getcwd())
+                if sys.version_info < (3, ):
+                    tmp_dir = tmp_dir.encode('utf-8')
+                # used to be a different directory, not necessary
+                compile_out_dir = tmp_dir
                 try:
                     compiler.link_executable(
                         compiler.compile(
                             [file_name],
-                            output_dir='/',  # as file_name has absolute prefix
+                            output_dir=compile_out_dir,
                         ),
                         bin_file_name,
                         output_dir=tmp_dir,
-                        libraries=libraries,
+                        libraries=ext.libraries,
                     )
                 except CompileError:
                     print('compile error:', file_name)
@@ -622,7 +761,7 @@ class NameSpacePackager(object):
                     continue
                 self._ext_modules.append(ext)
             except Exception as e:  # NOQA
-                # print('Exception:', e)
+                print('Exception:', e)
                 pass
             finally:
                 shutil.rmtree(tmp_dir)
@@ -655,6 +794,7 @@ class NameSpacePackager(object):
 
 # # call setup
 def main():
+    print('>>>>> here 1')
     dump_kw = '--dump-kw'
     if dump_kw in sys.argv:
         import wheel
@@ -678,6 +818,7 @@ def main():
         entry_points=nsp.entry_points(),
         description=nsp.description,
         install_requires=nsp.install_requires,
+        extras_require=nsp.extras_require,  # available since setuptools 18.0 / 2015-06
         license=nsp.license,
         classifiers=nsp.classifiers,
         keywords=nsp.keywords,
@@ -690,8 +831,11 @@ def main():
             print('  "{0}": "{1}",'.format(k, v))
     if dump_kw in sys.argv:
         sys.argv.remove(dump_kw)
-    with open('README.rst') as fp:
-        kw['long_description'] = fp.read()
+    try:
+        with open('README.rst') as fp:
+            kw['long_description'] = fp.read()
+    except:
+        pass
     if nsp.wheel(kw, setup):
         return
     for x in ['-c', 'egg_info', '--egg-base', 'pip-egg-info']:
@@ -716,6 +860,17 @@ def main():
                     break
                 try_dir = os.path.dirname(try_dir)
     setup(**kw)
-
+    print('>>>>> here')
+    if nsp.nested and sys.argv[:2] == ['-c', 'bdist_wheel']:
+        print('removing .pth')
+        d = sys.argv[sys.argv.index('-d') + 1]
+        for x in os.listdir(d):
+            if x.endswith('.whl'):
+                # remove .pth file from the wheel
+                full_name = os.path.join(d, x)
+                with InMemoryZipFile(full_name) as imz:
+                    imz.delete_from_zip_file(nsp.full_package_name + '.*.pth')
+                break
+    print('not removing .pth')
 
 main()
