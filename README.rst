@@ -1,3 +1,7 @@
+The Following is a fork from https://bitbucket.org/ruamel/bws .
+
+Minimum required Python version is >= 3.5.
+
 The Problem
 ===========
 
@@ -48,7 +52,7 @@ You can also install the
 Usage
 =====
 
-Run ``bws save`` to save the current browser windows, ``bws restore``
+Run ``bws2 save`` to save the current browser windows, ``bws2 restore``
 to restore the latest saved setup. Before restoring using ``bws
 restore``, reopen the browser windows and select [Restore] as
 necessary.
@@ -63,9 +67,9 @@ Configuration
 =============
 
 The program keeps configuration defaults and restore information in (by
-default) ``~/.config/bws`` in ``bws.ini`` resp. ``*.bws`` files. Multiple
-restore settings are kept (which might be a privacy issue for you), and ``bws list``
-will show you which ones (with a date-time-stamp). ``bws restore`` can take
+default) ``~/.config/bws`` in ``bws.json`` resp. ``*.bws`` files. Multiple
+restore settings are kept (which might be a privacy issue for you), and ``bws2 list``
+will show you which ones (with a date-time-stamp). ``bws2 restore`` can take
 an argument to select a specific "save""
 
 The config file allows to expand the patterns that are matched on where
@@ -81,7 +85,7 @@ Chrome
 
 Chrome's executable used to be called ``chromium-browser`` and that is what you find 
 in config files of pre-0.3.3 installations. You might want to upgrade and either
-remove the ``bws.ini`` file (so it will be regenerated), or make the chrome entry read::
+remove the ``bws.json`` file (so it will be regenerated), or make the chrome entry read::
 
   [br-chrome]
   basenamestart = chromium-browser, chrome
@@ -90,14 +94,14 @@ remove the ``bws.ini`` file (so it will be regenerated), or make the chrome entr
 Cron
 ====
 
-I run ``bws`` from crontab file every five minutes like this::
+I run ``bws2`` from crontab file every five minutes like this::
 
   */5 *  *   *   *     DISPLAY=:0 /home/anthon/.venv/27/bin/bws save --check
 
 the ``--check`` only works if the file specified with ``--unlock-file`` exists. This
 defaults to ``/tmp/bws.restored`` (which is on a temporary filesystem).
 
-Issuing ``bws restore`` removes this unlock file, unless you specify `--unlock`, which I do
+Issuing ``bws2 restore`` removes this unlock file, unless you specify `--unlock`, which I do
 on the last run, after Firefox has reloaded all pages, and restoring is complete..
 
 
