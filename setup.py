@@ -26,6 +26,6 @@ setuptools.setup(name='bws2',
                               'Programming Language :: Python :: Implementation :: CPython',
                               'Topic :: Internet :: WWW/HTTP :: Browsers  '
                               ],
-                 install_requires=['configobj'],
+                 install_requires=[],
                  entry_points={'console_scripts': ['bws2=bws2.browserworkspace:main']}
                  )
